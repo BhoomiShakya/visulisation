@@ -1,97 +1,77 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import Plot from 'react-plotly.js';
 import Plotly from "plotly.js/dist/plotly.min.js";
+import ChartDisplay from './ChartDisplay'; // Import the ChartDisplay component
 
 const FileUpload = () => {
     const [file, setFile] = useState(null);
-    const [charts, setCharts] = useState([]);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(50); // Number of items to display per page
-    const [searchQuery, setSearchQuery] = useState('');
-    
+    const [query, setQuery] = useState('');
+    const [charts, setCharts] = useState({});
+    const [resultMessage, setResultMessage] = useState('');
+
     const handleFileChange = (e) => {
         setFile(e.target.files[0]);
     };
 
-    const handleFileUpload = async () => {
-        if (!file) return alert('Please upload a file.');
+    const handleQuerySubmit = async () => {
+        if (!file || !query) return alert('Please upload a file and enter a query.');
 
         const formData = new FormData();
         formData.append('file', file);
-
+        formData.append('query', query);
+        console.log("formData file",file )
+        console.log("formData query ",query )
         try {
-            const response = await axios.post('http://localhost:8000/upload', formData, {
+            const response = await axios.post('http://localhost:8000/query', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            console.log("response from chart", response);
-            if (response.data && response.data.charts) {
-                setCharts(Object.values(response.data.charts)); // Ensure charts are extracted correctly
+            console.log("response hu mein",response)
+            if (response.data) {
+                setCharts(response.data.charts || []);
+                console.log("response data mein hu",response.data.charts)
+                setResultMessage(response.data.message || '');
+                console.log("response data message hu",response.data.message)
+
             } else {
-                console.error('No charts data received:', response.data);
+                console.error('No response data received:', response);
             }
         } catch (error) {
-            console.error('Error uploading file:', error);
+            console.error('Error processing query:', error);
         }
     };
 
-    const handleSearchChange = (e) => {
-        setSearchQuery(e.target.value);
-        setCurrentPage(1); // Reset to the first page on new search
-    };
-
-    // Filtering charts based on search query
-    const filteredCharts = charts.filter(chart => 
-        JSON.stringify(chart).toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    // Pagination logic
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentCharts = filteredCharts.slice(indexOfFirstItem, indexOfLastItem);
-
-    const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-    // Generate page numbers
-    const pageNumbers = [];
-    for (let i = 1; i <= Math.ceil(filteredCharts.length / itemsPerPage); i++) {
-        pageNumbers.push(i);
-    }
-
     return (
-        <div>
-            <input type="file" accept=".csv, .xlsx" onChange={handleFileChange} />
-            <button onClick={handleFileUpload}>Upload</button>
-
-            {/* Search bar */}
-            <input 
-                type="text" 
-                placeholder="Search charts..." 
-                value={searchQuery} 
-                onChange={handleSearchChange} 
-            />
-
-            <div>
-                {currentCharts.map((chart, index) => (
-                    <Plot
-                        key={index}
-                        data={JSON.parse(chart).data}
-                        layout={JSON.parse(chart).layout}
+        <div className="min-h-screen bg-gray-100 p-4">
+            <div className="max-w-4xl mx-auto bg-white shadow-md rounded-lg p-6 space-y-6">
+                {/* File Upload Section */}
+                <div className="space-y-4">
+                    <label className="block">
+                        <span className="text-gray-700">Upload File</span>
+                        <input
+                            type="file"
+                            accept=".csv, .xlsx"
+                            onChange={handleFileChange}
+                            className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                        />
+                    </label>
+                    <textarea
+                        placeholder="Ask a question about the data..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="w-full h-32 p-4 border rounded-md focus:outline-none focus:ring focus:ring-blue-300"
                     />
-                ))}
-            </div>
+                    <button
+                        onClick={handleQuerySubmit}
+                        className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+                    >
+                        Submit Query
+                    </button>
+                </div>
 
-            {/* Pagination controls */}
-            <div>
-                <ul>
-                    {pageNumbers.map(number => (
-                        <li key={number} style={{ display: 'inline', margin: '0 5px' }}>
-                            <button onClick={() => paginate(number)}>
-                                {number}
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+
+                {/* ChartDisplay Component */}
+                <ChartDisplay charts={charts} resultMessage={resultMessage} />
             </div>
         </div>
     );
